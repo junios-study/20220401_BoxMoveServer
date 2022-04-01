@@ -42,6 +42,8 @@ int main()
 
 	char Buffer[2049] = { 0, };
 	char Header[2] = { 0, };
+	char SendData[1024] = { 0, };
+
 
 	while (1)
 	{
@@ -89,6 +91,8 @@ int main()
 							{
 								//close
 								cout << GetLastError() << endl;
+								closesocket(Reads.fd_array[i]);
+								FD_CLR(Reads.fd_array[i], &Reads);
 							}
 							else
 							{
@@ -96,11 +100,13 @@ int main()
 								{
 									char Data[3] = { 0, };
 									int RecvLength = recv(Reads.fd_array[i], Data, 3, 0);
-									cout << "RecvLength : " << RecvLength << endl;
-									//save player rgb 
-									cout << (UINT8)Data[0] << endl;
-									cout << (UINT8)Data[1] << endl;
-									cout << (UINT8)Data[2] << endl;
+
+									SendData[0] = (UINT8)MSGPacket::LoginAck;
+									SendData[1] = (UINT8)4;
+									memcpy(&SendData[2], &Reads.fd_array[i], 4);
+									send(Reads.fd_array[i], SendData, 6, 0);
+
+									cout << Reads.fd_array[i] << endl;
 								}
 								else if ((UINT8)Header[0] == (UINT8)MSGPacket::MakePlayer)
 								{
