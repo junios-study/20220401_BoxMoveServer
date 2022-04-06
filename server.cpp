@@ -38,8 +38,8 @@ int main()
 
 	TIMEVAL Timeout;
 
-	Timeout.tv_sec = 0;
-	Timeout.tv_usec = 500;
+	Timeout.tv_sec = 1;
+	Timeout.tv_usec = 0;
 
 	FD_ZERO(&Reads);
 	FD_ZERO(&CopyReads);
@@ -56,6 +56,8 @@ int main()
 		CopyReads = Reads;
 
 		int ChangeFDNumber = select(0, &CopyReads, 0, 0, &Timeout);
+
+		cout << "fd_count : " << Reads.fd_count << endl;
 
 		if (ChangeFDNumber == 0)
 		{
@@ -88,96 +90,101 @@ int main()
 				}
 				else //client prcess
 				{
-					for (int ClientIndex = 0; ClientIndex < (int)Reads.fd_count; ++ClientIndex)
+					if (Reads.fd_array[i] != ServerSocket)
 					{
-						if (Reads.fd_array[ClientIndex] != ServerSocket)
+						int RecvLength = recv(Reads.fd_array[i], Header, 2, 0);
+						if (RecvLength <= 0)
 						{
-							int RecvLength = recv(Reads.fd_array[i], Header, 2, 0);
-							if (RecvLength <= 0)
+							//close
+							ConnectedPlayer.erase(Reads.fd_array[i]);
+
+							cout << "Disconnect : " << GetLastError() << endl;
+							closesocket(Reads.fd_array[i]);
+							FD_CLR(Reads.fd_array[i], &Reads);
+						}
+						//else
+						{
+							if ((UINT8)Header[0] == (UINT8)MSGPacket::Login)
 							{
-								//close
-								cout << GetLastError() << endl;
-								closesocket(Reads.fd_array[i]);
-								FD_CLR(Reads.fd_array[i], &Reads);
-							}
-							else
-							{
-								if ((UINT8)Header[0] == (UINT8)MSGPacket::Login)
+								//packet parsing
+								char Data[3] = { 0, };
+								int RecvLength = recv(Reads.fd_array[i], Data, 3, 0);
+
+								//save session 
+								PlayerData NewPlayerData;
+
+								NewPlayerData.ClientSocket = Reads.fd_array[i];
+								NewPlayerData.R = Data[0];
+								NewPlayerData.G = Data[1];
+								NewPlayerData.B = Data[2];
+								NewPlayerData.X = 0;
+								NewPlayerData.Y = 0;
+								ConnectedPlayer[NewPlayerData.ClientSocket] = NewPlayerData;
+
+								//reponse
+								SendData[0] = (UINT8)MSGPacket::LoginAck;
+								SendData[1] = (UINT8)4;
+								memcpy(&SendData[2], &Reads.fd_array[i], 4);
+								send(Reads.fd_array[i], SendData, 6, 0);
+
+								cout << "save Session : " << Reads.fd_array[i] << endl;
+
+								//이미 접속된 유저 리스트
+								for (auto AlreadyConnectedPlayer : ConnectedPlayer)
 								{
-									//packet parsing
-									char Data[3] = { 0, };
-									int RecvLength = recv(Reads.fd_array[i], Data, 3, 0);
-
-									//save session 
-									//thread 
-									//10(000)k problem
-									PlayerData NewPlayerData;
-
-									NewPlayerData.ClientSocket = Reads.fd_array[i];
-									NewPlayerData.R = Data[0];
-									NewPlayerData.G = Data[1];
-									NewPlayerData.B = Data[2];
-									NewPlayerData.X = 0;
-									NewPlayerData.Y = 0;
-									ConnectedPlayer[NewPlayerData.ClientSocket] = NewPlayerData;
-
-									//reponse
-									SendData[0] = (UINT8)MSGPacket::LoginAck;
-									SendData[1]  = (UINT8)4;
-									memcpy(&SendData[2], &Reads.fd_array[i], 4);
-									send(Reads.fd_array[i], SendData, 6, 0);
-
-									cout << Reads.fd_array[i] << endl;
-
-									//이미 접속된 유저 리스트
-									for (auto AlreadyConnectedPlayer : ConnectedPlayer)
+									cout << "AlreadyConnectedPlayer 1" << endl;
+									//새로 접속한 아이
+									if (AlreadyConnectedPlayer.second.ClientSocket == Reads.fd_array[i])
 									{
-										//새로 접속한 아이
-										if (AlreadyConnectedPlayer.second.ClientSocket == Reads.fd_array[i])
-										{
-											continue;
-										}
-
-										//새로 접속한 클라이언트 정보를 이미 접속한 클라이언트한테 전송
-										SendData[0] = (UINT8)MSGPacket::MakePlayer;
-										SendData[1] = (UINT8)11;
-										SendData[2] = (UINT8)NewPlayerData.R;
-										SendData[3] = (UINT8)NewPlayerData.G;
-										SendData[4] = (UINT8)NewPlayerData.B;
-										memcpy(&SendData[5], &(NewPlayerData.X), 4);
-										memcpy(&SendData[9], &(NewPlayerData.Y), 4);
-
-										send(AlreadyConnectedPlayer.second.ClientSocket, SendData, 13, 0);
+										continue;
 									}
 
-									//새로 접속한 클라이언트한테 모든 클라이언트 정보 보내기
-									for (auto AlreadyConnectedPlayer : ConnectedPlayer)
-									{
-										//새로 접속한 아이
-										if (AlreadyConnectedPlayer.second.ClientSocket == Reads.fd_array[i])
-										{
-											continue;
-										}
+									//새로 접속한 클라이언트 정보를 이미 접속한 클라이언트한테 전송
+									SendData[0] = (UINT8)MSGPacket::MakePlayer;
+									SendData[1] = (UINT8)15;
+									SendData[2] = (UINT8)NewPlayerData.R;
+									SendData[3] = (UINT8)NewPlayerData.G;
+									SendData[4] = (UINT8)NewPlayerData.B;
+									memcpy(&SendData[5], &(NewPlayerData.X), 4);
+									memcpy(&SendData[9], &(NewPlayerData.Y), 4);
+									memcpy(&SendData[13], &(NewPlayerData.ClientSocket), 4);
 
-										//새로 접속한 클라이언트 이미 접속한 클라이언트 정보 보내기
-										SendData[0] = (UINT8)MSGPacket::MakePlayer;
-										SendData[1] = (UINT8)11;
-										SendData[2] = (UINT8)AlreadyConnectedPlayer.second.R;
-										SendData[3] = (UINT8)AlreadyConnectedPlayer.second.G;
-										SendData[4] = (UINT8)AlreadyConnectedPlayer.second.B;
-										memcpy(&SendData[5], &(AlreadyConnectedPlayer.second.X), 4);
-										memcpy(&SendData[9], &(AlreadyConnectedPlayer.second.Y), 4);
-
-										send(NewPlayerData.ClientSocket, SendData, 13, 0);
-									}
+									send(AlreadyConnectedPlayer.second.ClientSocket, SendData, 15, 0);
 								}
-								else if ((UINT8)Header[0] == (UINT8)MSGPacket::MovePlayer)
+
+								//새로 접속한 클라이언트한테 모든 클라이언트 정보 보내기
+								for (auto AlreadyConnectedPlayer : ConnectedPlayer)
 								{
+									cout << "AlreadyConnectedPlayer 2" << endl;
 
+									//새로 접속한 아이
+									if (AlreadyConnectedPlayer.second.ClientSocket == Reads.fd_array[i])
+									{
+										continue;
+									}
+
+									//새로 접속한 클라이언트 이미 접속한 클라이언트 정보 보내기
+									SendData[0] = (UINT8)MSGPacket::MakePlayer;
+									SendData[1] = (UINT8)15;
+									SendData[2] = (UINT8)AlreadyConnectedPlayer.second.R;
+									SendData[3] = (UINT8)AlreadyConnectedPlayer.second.G;
+									SendData[4] = (UINT8)AlreadyConnectedPlayer.second.B;
+									memcpy(&SendData[5], &(AlreadyConnectedPlayer.second.X), 4);
+									memcpy(&SendData[9], &(AlreadyConnectedPlayer.second.Y), 4);
+									memcpy(&SendData[13], &(AlreadyConnectedPlayer.second.ClientSocket), 4);
+
+									send(NewPlayerData.ClientSocket, SendData, 15, 0);
 								}
-							}
 
-						}					}
+								cout << "Complete MakePlayer" << endl;
+							}
+							else if ((UINT8)Header[0] == (UINT8)MSGPacket::MovePlayer)
+							{
+
+							}
+						}
+
+					}
 				}
 			}
 		}
