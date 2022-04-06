@@ -171,7 +171,27 @@ int main()
 						}
 						else if ((UINT8)Header[0] == (UINT8)MSGPacket::MovePlayer)
 						{
+							//packet parsing
+							char Data[15] = { 0, };
+							int RecvLength = recv(Reads.fd_array[i], Data, 15, 0);
 
+							//save session 
+							PlayerData MovePlayerData;
+							MovePlayerData.MakeData(Data);
+
+							ConnectedPlayer[MovePlayerData.ClientSocket] = MovePlayerData;
+
+							for (const auto& SendPlayer : ConnectedPlayer)
+							{
+								//움직이는 제외
+								if (SendPlayer.second.ClientSocket != MovePlayerData.ClientSocket)
+								{
+									SendData[0] = (UINT8)MSGPacket::MovePlayer;
+									SendData[1] = 15;
+									MovePlayerData.MakePacket(&SendData[2]);
+									send(SendPlayer.second.ClientSocket, SendData, 15 + 2, 0);
+								}
+							}
 						}
 					}
 				}
