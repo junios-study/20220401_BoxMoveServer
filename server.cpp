@@ -124,7 +124,6 @@ int main()
 							//이미 접속된 유저 리스트
 							for (auto AlreadyConnectedPlayer : ConnectedPlayer)
 							{
-								cout << "AlreadyConnectedPlayer 1" << endl;
 								//새로 접속한 아이
 								if (AlreadyConnectedPlayer.second.ClientSocket == Reads.fd_array[i])
 								{
@@ -134,21 +133,14 @@ int main()
 								//새로 접속한 클라이언트 정보를 이미 접속한 클라이언트한테 전송
 								SendData[0] = (UINT8)MSGPacket::MakePlayer;
 								SendData[1] = (UINT8)15;
-								SendData[2] = (UINT8)NewPlayerData.R;
-								SendData[3] = (UINT8)NewPlayerData.G;
-								SendData[4] = (UINT8)NewPlayerData.B;
-								memcpy(&SendData[5], &(NewPlayerData.X), 4);
-								memcpy(&SendData[9], &(NewPlayerData.Y), 4);
-								memcpy(&SendData[13], &(NewPlayerData.ClientSocket), 4);
+								NewPlayerData.MakePacket(&SendData[2]);
 
-								send(AlreadyConnectedPlayer.second.ClientSocket, SendData, 15, 0);
+								send(AlreadyConnectedPlayer.second.ClientSocket, SendData, 15+2, 0);
 							}
 
 							//새로 접속한 클라이언트한테 모든 클라이언트 정보 보내기
 							for (auto AlreadyConnectedPlayer : ConnectedPlayer)
 							{
-								cout << "AlreadyConnectedPlayer 2" << endl;
-
 								//새로 접속한 아이
 								if (AlreadyConnectedPlayer.second.ClientSocket == Reads.fd_array[i])
 								{
@@ -158,14 +150,9 @@ int main()
 								//새로 접속한 클라이언트 이미 접속한 클라이언트 정보 보내기
 								SendData[0] = (UINT8)MSGPacket::MakePlayer;
 								SendData[1] = (UINT8)15;
-								SendData[2] = (UINT8)AlreadyConnectedPlayer.second.R;
-								SendData[3] = (UINT8)AlreadyConnectedPlayer.second.G;
-								SendData[4] = (UINT8)AlreadyConnectedPlayer.second.B;
-								memcpy(&SendData[5], &(AlreadyConnectedPlayer.second.X), 4);
-								memcpy(&SendData[9], &(AlreadyConnectedPlayer.second.Y), 4);
-								memcpy(&SendData[13], &(AlreadyConnectedPlayer.second.ClientSocket), 4);
+								AlreadyConnectedPlayer.second.MakePacket(&SendData[2]);
 
-								send(NewPlayerData.ClientSocket, SendData, 15, 0);
+								send(NewPlayerData.ClientSocket, SendData, 15+2, 0);
 							}
 
 							cout << "Complete MakePlayer" << endl;
