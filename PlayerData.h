@@ -7,11 +7,13 @@ public:
 	UINT8 R;
 	UINT8 G;
 	UINT8 B;
-	int X;
-	int Y;
+	UINT32 X;
+	UINT32 Y;
 	SOCKET ClientSocket;
 
 	//proto buffer, flat buffer
+	//0	  1 	2	3	4	5	6	7	8	9	10	11	        12	13	14
+	//R   G	    B	X				Y				ClientNumber
 	void MakeData(char* Data) //Deserialze(역직렬화), json -> Data
 	{
 		R = (UINT8)Data[0];
@@ -24,11 +26,11 @@ public:
 
 	void MakePacket(char* Packet) //Serialize(직렬화), Data -> json
 	{
-		Packet[2] = (UINT8)R;
-		Packet[3] = (UINT8)G;
-		Packet[4] = (UINT8)B;
-		memcpy(&Packet[5], &(X), 4);
-		memcpy(&Packet[9], &(Y), 4);
-		memcpy(&Packet[13], &(ClientSocket), 4);
+		Packet[0] = (UINT8)R;
+		Packet[1] = (UINT8)G;
+		Packet[2] = (UINT8)B;
+		memcpy(&Packet[3], &(X), 4);
+		memcpy(&Packet[7], &(Y), 4);
+		memcpy(&Packet[11], &(ClientSocket), 4);
 	}
 };
