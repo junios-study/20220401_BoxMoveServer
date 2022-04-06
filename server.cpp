@@ -91,12 +91,24 @@ int main()
 					int RecvLength = recv(Reads.fd_array[i], Header, 2, 0);
 					if (RecvLength <= 0)
 					{
+						SOCKET DisconnectPlayerSocket = Reads.fd_array[i];
+						SendData[0] = (UINT8)MSGPacket::DeletePlayer;
+						SendData[1] = 15;
+						ConnectedPlayer[DisconnectPlayerSocket].MakePacket(&SendData[2]);
 						//close
-						ConnectedPlayer.erase(Reads.fd_array[i]);
+						for (const auto& SendPlayer : ConnectedPlayer)
+						{
+							if (SendPlayer.second.ClientSocket != DisconnectPlayerSocket)
+							{
+								send(SendPlayer.second.ClientSocket, SendData, 15 + 2, 0);
+							}
+						}
+
+						ConnectedPlayer.erase(DisconnectPlayerSocket);
 
 						cout << "Disconnect : " << GetLastError() << endl;
-						closesocket(Reads.fd_array[i]);
-						FD_CLR(Reads.fd_array[i], &Reads);
+						closesocket(DisconnectPlayerSocket);
+						FD_CLR(DisconnectPlayerSocket, &Reads);
 					}
 					else
 					{
