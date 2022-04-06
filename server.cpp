@@ -102,7 +102,7 @@ int main()
 							closesocket(Reads.fd_array[i]);
 							FD_CLR(Reads.fd_array[i], &Reads);
 						}
-						//else
+						else
 						{
 							if ((UINT8)Header[0] == (UINT8)MSGPacket::Login)
 							{
