@@ -2,14 +2,20 @@
 #include <winsock2.h>
 #include <Windows.h>
 #include <string>
+#include <map>
+#include <set>
 #include "MSGPacket.h"
+#include "PlayerData.h"
 
 #pragma comment(lib, "ws2_32.lib")
 
 using namespace std;
 
+
 int main()
 {
+	map<SOCKET, PlayerData> ConnectedPlayer;//Session
+
 	WSADATA wsaData;
 
 	WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -98,19 +104,72 @@ int main()
 							{
 								if ((UINT8)Header[0] == (UINT8)MSGPacket::Login)
 								{
+									//packet parsing
 									char Data[3] = { 0, };
 									int RecvLength = recv(Reads.fd_array[i], Data, 3, 0);
 
+									//save session 
+									//thread 
+									//10(000)k problem
+									PlayerData NewPlayerData;
+
+									NewPlayerData.ClientSocket = Reads.fd_array[i];
+									NewPlayerData.R = Data[0];
+									NewPlayerData.G = Data[1];
+									NewPlayerData.B = Data[2];
+									NewPlayerData.X = 0;
+									NewPlayerData.Y = 0;
+									ConnectedPlayer[NewPlayerData.ClientSocket] = NewPlayerData;
+
+									//reponse
 									SendData[0] = (UINT8)MSGPacket::LoginAck;
-									SendData[1] = (UINT8)4;
+									SendData[1]  = (UINT8)4;
 									memcpy(&SendData[2], &Reads.fd_array[i], 4);
 									send(Reads.fd_array[i], SendData, 6, 0);
 
 									cout << Reads.fd_array[i] << endl;
-								}
-								else if ((UINT8)Header[0] == (UINT8)MSGPacket::MakePlayer)
-								{
 
+									//이미 접속된 유저 리스트
+									for (auto AlreadyConnectedPlayer : ConnectedPlayer)
+									{
+										//새로 접속한 아이
+										if (AlreadyConnectedPlayer.second.ClientSocket == Reads.fd_array[i])
+										{
+											continue;
+										}
+
+										//새로 접속한 클라이언트 정보를 이미 접속한 클라이언트한테 전송
+										SendData[0] = (UINT8)MSGPacket::MakePlayer;
+										SendData[1] = (UINT8)11;
+										SendData[2] = (UINT8)NewPlayerData.R;
+										SendData[3] = (UINT8)NewPlayerData.G;
+										SendData[4] = (UINT8)NewPlayerData.B;
+										memcpy(&SendData[5], &(NewPlayerData.X), 4);
+										memcpy(&SendData[9], &(NewPlayerData.Y), 4);
+
+										send(AlreadyConnectedPlayer.second.ClientSocket, SendData, 13, 0);
+									}
+
+									//새로 접속한 클라이언트한테 모든 클라이언트 정보 보내기
+									for (auto AlreadyConnectedPlayer : ConnectedPlayer)
+									{
+										//새로 접속한 아이
+										if (AlreadyConnectedPlayer.second.ClientSocket == Reads.fd_array[i])
+										{
+											continue;
+										}
+
+										//새로 접속한 클라이언트 이미 접속한 클라이언트 정보 보내기
+										SendData[0] = (UINT8)MSGPacket::MakePlayer;
+										SendData[1] = (UINT8)11;
+										SendData[2] = (UINT8)AlreadyConnectedPlayer.second.R;
+										SendData[3] = (UINT8)AlreadyConnectedPlayer.second.G;
+										SendData[4] = (UINT8)AlreadyConnectedPlayer.second.B;
+										memcpy(&SendData[5], &(AlreadyConnectedPlayer.second.X), 4);
+										memcpy(&SendData[9], &(AlreadyConnectedPlayer.second.Y), 4);
+
+										send(NewPlayerData.ClientSocket, SendData, 13, 0);
+									}
 								}
 								else if ((UINT8)Header[0] == (UINT8)MSGPacket::MovePlayer)
 								{
@@ -118,8 +177,7 @@ int main()
 								}
 							}
 
-						}
-					}
+						}					}
 				}
 			}
 		}
